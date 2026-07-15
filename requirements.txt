@@ -3,4 +3,4 @@ scipy
 pandas
 requests
 dash
-plotly
+plotlyyfinance
