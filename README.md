@@ -43,6 +43,7 @@ backend/
 │   ├── position.py        # multi-leg Greeks aggregation
 │   └── scenario.py        # spot x vol P&L grid
 └── app.py                 # Dash risk screen tying it all together
+
 ## Scope
 
 European options, one underlying at a time, no dividends, flat risk-free
