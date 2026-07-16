@@ -30,6 +30,8 @@ uses.
    builder, and a P&L heatmap, styled as a dark trading-terminal screen.
 
 ## Architecture
+
+```
 backend/
 ├── pricing/
 │   ├── black_scholes.py   # price + Greeks, derived from scratch
@@ -43,6 +45,7 @@ backend/
 │   ├── position.py        # multi-leg Greeks aggregation
 │   └── scenario.py        # spot x vol P&L grid
 └── app.py                 # Dash risk screen tying it all together
+```
 
 ## Scope
 
