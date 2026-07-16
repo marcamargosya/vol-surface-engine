@@ -4,3 +4,4 @@ pandas
 requests
 dash
 plotlyyfinance
+pytest
