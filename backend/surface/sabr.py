@@ -103,3 +103,67 @@ if __name__ == "__main__":
     assert max_error < 1e-3, "SABR calibration failed to recover the smile accurately"
 
     print("All SABR sanity checks passed.")
+class SABRSurface:
+    """
+    SABR-fitted vol surface -- same query interface as VolSurface (get_iv,
+    grid) so the risk/app layers can swap between interpolation and SABR
+    without changing any calling code.
+
+    Fits one SABR smile per expiry (on the forward F = S * exp(r*T), since
+    SABR is defined in forward terms), then interpolates across expiries the
+    same way VolSurface does: linear in total variance, not linear in vol.
+    """
+
+    def __init__(self, iv_table, r: float, beta: float = 1.0):
+        self.r = r
+        self.beta = beta
+        self.expiries = sorted(iv_table["T"].unique())
+        if len(self.expiries) < 2:
+            raise ValueError("Need at least 2 expiries to interpolate across time")
+
+        self._params = {}  # T -> (alpha, beta, rho, nu, F)
+        for T in self.expiries:
+            slice_df = iv_table[iv_table["T"] == T].sort_values("strike")
+            strikes = slice_df["strike"].values
+            ivs = slice_df["iv"].values
+            spot = slice_df["spot"].iloc[0] if "spot" in slice_df else None
+
+            if len(strikes) < 4:
+                continue
+
+            F = spot * np.exp(r * T) if spot is not None else np.median(strikes)
+            alpha, beta_out, rho, nu = calibrate_sabr(strikes, ivs, F, T, beta=beta)
+            self._params[T] = (alpha, beta_out, rho, nu, F)
+
+        if not self._params:
+            raise ValueError("No expiry had enough strikes to fit SABR")
+
+        self._fitted_expiries = sorted(self._params.keys())
+
+    def _smile_iv(self, T: float, K: float) -> float:
+        alpha, beta, rho, nu, F = self._params[T]
+        return sabr_implied_vol(F, K, T, alpha, beta, rho, nu)
+
+    def get_iv(self, K: float, T: float) -> float:
+        expiries = self._fitted_expiries
+
+        if T <= expiries[0]:
+            return self._smile_iv(expiries[0], K)
+        if T >= expiries[-1]:
+            return self._smile_iv(expiries[-1], K)
+
+        for i in range(len(expiries) - 1):
+            T_lo, T_hi = expiries[i], expiries[i + 1]
+            if T_lo <= T <= T_hi:
+                iv_lo = self._smile_iv(T_lo, K)
+                iv_hi = self._smile_iv(T_hi, K)
+                var_lo = iv_lo ** 2 * T_lo
+                var_hi = iv_hi ** 2 * T_hi
+                weight = (T - T_lo) / (T_hi - T_lo)
+                var_interp = var_lo + weight * (var_hi - var_lo)
+                return float(np.sqrt(var_interp / T))
+
+        raise RuntimeError("Unreachable -- T bracketing failed")
+
+    def grid(self, strikes: np.ndarray, expiries: np.ndarray) -> np.ndarray:
+        return np.array([[self.get_iv(K, T) for K in strikes] for T in expiries])

@@ -9,10 +9,17 @@ Deliberately does NOT compute IV here — that's the pricing layer's job
 trusting yfinance's own impliedVolatility column, per the project brief).
 """
 
+import socket
+import time
 from datetime import datetime, timezone
 
 import pandas as pd
 import yfinance as yf
+
+# Hard timeout on all network calls -- without this, a stalled Yahoo request
+# can hang indefinitely instead of failing, which is what was freezing the
+# app. 10s is generous for a single options-chain request.
+socket.setdefaulttimeout(10)
 
 
 def fetch_chain(ticker: str, max_expiries: int = 6) -> pd.DataFrame:
@@ -41,7 +48,12 @@ def fetch_chain(ticker: str, max_expiries: int = 6) -> pd.DataFrame:
         if T <= 0:
             continue
 
-        chain = t.option_chain(expiry_str)
+        try:
+            time.sleep(0.4)  # small delay -- reduces Yahoo rate-limit failures
+            chain = t.option_chain(expiry_str)
+        except Exception as e:
+            print(f"Skipping expiry {expiry_str} -- fetch failed: {e}")
+            continue
 
         for option_type, df in [("call", chain.calls), ("put", chain.puts)]:
             for _, row in df.iterrows():
