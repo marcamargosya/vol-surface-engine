@@ -10,9 +10,7 @@ Convention:
     q     : continuous dividend yield (default 0 — scope discipline: no dividends yet,
             kept as a parameter so the surface layer doesn't need a rewrite later)
 
-All formulas derived directly from the BS PDE solution, not looked up as a
-one-line library call. norm.cdf/pdf are just the standard normal CDF/PDF —
-using them isn't "using a BS library", it's using the definition of N(x).
+
 """
 
 import numpy as np
