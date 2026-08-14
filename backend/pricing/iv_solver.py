@@ -9,9 +9,7 @@ Fallback: bisection (slow but guaranteed to converge) — used when:
     - NR overshoots into sigma <= 0
     - NR fails to converge within max_iter
 
-This dual-method approach is exactly what a real risk desk does: Newton-Raphson
-for speed on the vast majority of quotes, bisection as a safety net so a single
-bad quote doesn't crash the pipeline.
+
 """
 
 import numpy as np
